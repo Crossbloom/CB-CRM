@@ -1,0 +1,37 @@
+# app.crossbloom.in - example Nginx server block (commit-safe)
+# Replace placeholders and adapt log paths if needed.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.crossbloom.in;
+
+    # Redirect all traffic to backend on localhost.
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Websocket / upgrade support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+
+        # Allow large uploads for file hub
+        client_max_body_size 200M;
+        proxy_max_temp_file_size 0;
+    }
+
+    # Security headers (best-effort defaults)
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    # Example log paths (change on VPS)
+    access_log /var/log/nginx/app_crossbloom_access.log;
+    error_log  /var/log/nginx/app_crossbloom_error.log warn;
+}

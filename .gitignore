@@ -20,3 +20,6 @@ Thumbs.db
 # Ignore local backup/save files
 *.bak*
 *.save
+
+# ignore root-level pm2 ecosystem files
+ecosystem.config.js

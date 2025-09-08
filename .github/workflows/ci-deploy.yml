@@ -1,0 +1,94 @@
+name: CI / Build & Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Setup environment for backend
+        run: |
+          cd backend
+          npm ci
+          # run backend tests if any: npm test
+
+      - name: Build backend artifact (zip)
+        run: |
+          cd backend
+          zip -r ../backend-artifact.zip . -x node_modules/\* .env
+
+      - name: Setup environment for frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Pack frontend (next build)
+        run: |
+          cd frontend
+          zip -r ../frontend-artifact.zip .next package.json public next.config.js -x node_modules/\* .env.local
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cb-artifacts
+          path: |
+            backend-artifact.zip
+            frontend-artifact.zip
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cb-artifacts
+          path: ./artifacts
+
+      # Optional: Deploy via SSH to VPS (requires secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY)
+      - name: Setup SSH
+        if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_USER && secrets.DEPLOY_KEY }}
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Copy artifacts to server
+        if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_USER && secrets.DEPLOY_KEY }}
+        run: |
+          scp -o StrictHostKeyChecking=no artifacts/backend-artifact.zip ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/
+          scp -o StrictHostKeyChecking=no artifacts/frontend-artifact.zip ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/
+
+      - name: Remote deploy script (run infra/deploy.sh)
+        if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_USER && secrets.DEPLOY_KEY }}
+        run: |
+          ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "bash -s" <<'BASH'
+            set -euo pipefail
+            cd /home/${DEPLOY_USER}/CB-CRM
+            # Unpack artifacts
+            unzip -o /tmp/backend-artifact.zip -d backend
+            unzip -o /tmp/frontend-artifact.zip -d frontend
+            # Run existing infra/deploy.sh (if present) which will perform npm ci/build and pm2 restart
+            if [ -x infra/deploy.sh ]; then
+              sudo infra/deploy.sh
+            else
+              echo "infra/deploy.sh not found or not executable. Please run manual deploy steps."
+            fi
+          BASH

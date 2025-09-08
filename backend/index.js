@@ -16,15 +16,21 @@ app.use((req, res, next) => {
 const api = require('./routes/api');
 app.use('/api', api);
 
+// Health & Supabase test routes
+// -> /api/health   (GET)
+// -> /api/supatest (GET)
+const healthRouter = require('./routes/health');
+app.use('/api', healthRouter);
+
 // Default route
 app.get('/', (req, res) => {
   res.json({ ok: true, message: 'Crossbloom backend running' });
 });
 
+// 404 handler (nice to have)
+app.use((req, res) => {
+  res.status(404).json({ error: 'not_found' });
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log('Backend listening on', PORT));
-
-// --- added by CB-STEP-0012-E-01: health & supabase test routes ---
-const healthRouter = require('./routes/health');
-app.use('/api', healthRouter);
-// --- end addition ---

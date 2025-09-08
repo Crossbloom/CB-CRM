@@ -1,0 +1,53 @@
+version: '3.8'
+
+# Crossbloom CRM - docker-compose template
+# Note: bind critical services to 127.0.0.1 when exposing to host to reduce public exposure.
+# Customize image names, volumes, env_file paths, and networks for your environment.
+
+services:
+  backend:
+    image: crossbloom/backend:latest
+    container_name: crossbloom-backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    working_dir: /usr/src/app
+    command: ["node", "backend/index.js"]
+    ports:
+      - "127.0.0.1:3000:3000"   # bound to localhost; access via nginx reverse proxy
+    volumes:
+      - ../backend:/usr/src/app:cached
+      - /var/log/crossbloom/backend:/usr/src/app/logs
+    depends_on:
+      - db
+
+  frontend:
+    image: crossbloom/frontend:latest
+    container_name: crossbloom-frontend
+    restart: unless-stopped
+    env_file:
+      - ../frontend/.env
+    working_dir: /usr/src/app
+    command: ["npm", "run", "start"]
+    ports:
+      - "127.0.0.1:3001:3000"  # Next.js default dev/production binding (adjust)
+    volumes:
+      - ../frontend:/usr/src/app:cached
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:15
+    container_name: crossbloom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cb_user
+      POSTGRES_PASSWORD: change_me_here
+      POSTGRES_DB: crossbloom
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"  # bind only to localhost for safety
+
+volumes:
+  pgdata:

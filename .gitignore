@@ -16,3 +16,7 @@ logs
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ignore local backup/save files
+*.bak*
+*.save

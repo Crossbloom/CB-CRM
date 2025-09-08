@@ -16,3 +16,8 @@ Notes:
   - `docker` & `docker-compose` are installed if using docker.
 - The script does NOT modify nginx configuration automatically (requires sudo). Use the nginx file in infra/ to manage config.
 - Always ensure working tree is clean before running.
+
+## Smoke test note (CB-STEP-0014e)
+Last smoke test: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Status: pm2 processes started, nginx proxied, certbot dry-run OK (if renew dry-run succeeded).
+See infra/README-smoke.md for details.
